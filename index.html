@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浓度检测器</title>
+    <style>
+        :root {
+            --primary: #2196F3;
+            --primary-light: #BBDEFB;
+            --primary-dark: #1976D2;
+            --accent: #FF4081;
+            --text-primary: #212121;
+            --text-secondary: #757575;
+            --background: #F5F5F5;
+            --surface: #FFFFFF;
+            --border-radius: 8px;
+            --box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .card {
+            background-color: var(--surface);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+        
+        .card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .app-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            color: var(--primary-dark);
+        }
+        
+        p {
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: var(--transition);
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
+            margin: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .button:hover {
+            background-color: var(--primary-dark);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .button:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        
+        .button:disabled {
+            background-color: #BDBDBD;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            background-color: #000;
+            margin-bottom: 20px;
+        }
+        
+        #video {
+            width: 100%;
+            display: none;
+            border-radius: var(--border-radius);
+        }
+        
+        #targetCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border: 2px dashed rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.3);
+        }
+        
+        #targetCircleText {
+            position: absolute;
+            top: calc(50% + 60px);
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background-color: rgba(33, 150, 243, 0.7);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+        
+        #canvas {
+            display: none;
+        }
+        
+        #photoContainer {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        
+        #photo {
+            width: 100%;
+            display: none;
+            border-radius: var(--border-radius);
+        }
+        
+        #photoTargetCircle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border: 2px dashed var(--primary);
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.3);
+        }
+        
+        .reference-scale {
+            display: flex;
+            overflow-x: auto;
+            margin: 16px 0;
+            padding: 16px 0;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .reference-scale::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .reference-scale::-webkit-scrollbar-thumb {
+            background: var(--primary-light);
+            border-radius: 4px;
+        }
+        
+        .reference-color {
+            min-width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        
+        .reference-color:hover {
+            transform: scale(1.15);
+            z-index: 2;
+        }
+        
+        .reference-label {
+            font-size: 10px;
+            margin-top: 8px;
+            color: var(--text-secondary);
+        }
+        
+        #colorInfo {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        #colorDisplay {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin: 20px auto;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            transition: var(--transition);
+        }
+        
+        .result-panel {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            flex: 1 1 50%;
+            min-width: 150px;
+            padding: 10px;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        
+        .result-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .concentration-result {
+            flex-basis: 100%;
+            text-align: center;
+            padding: 16px;
+            margin-top: 16px;
+            background-color: var(--primary-light);
+            border-radius: var(--border-radius);
+        }
+        
+        .result-highlight {
+            font-weight: 600;
+            font-size: 28px;
+            color: var(--primary-dark);
+            display: block;
+            margin: 8px 0;
+        }
+        
+        #debug {
+            display: none;
+        }
+
+        .advanced-settings {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .settings-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .settings-content {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .range-slider {
+            width: 100%;
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .confidence-meter {
+            height: 6px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            margin: 8px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .confidence-level {
+            height: 100%;
+            background-color: var(--primary);
+            border-radius: 3px;
+        }
+        
+        /* Tech-forward animations */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .history-list {
+            margin-top: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .history-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-actions button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+        }
+
+        #calibration {
+            margin-top: 16px;
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="app-header">
+            <h1>浓度检测器</h1>
+            <p>拍摄样本或上传图片进行浓度分析</p>
+        </div>
+        
+        <div class="card">
+            <div class="tab-container">
+                <div class="tab active" data-tab="capture">捕获图像</div>
+                <div class="tab" data-tab="analyze">分析</div>
+                <div class="tab" data-tab="history">历史记录</div>
+                <div class="tab" data-tab="settings">设置</div>
+            </div>
+            
+            <div class="tab-content active" id="capture-tab">
+                <div class="reference-scale">
+                    <!-- 参考色值比例尺 -->
+                </div>
+                
+                <div class="video-container">
+                    <video id="video" autoplay playsinline></video>
+                    <div id="targetCircle"></div>
+                    <div id="targetCircleText">将样本放在圆圈内</div>
+                </div>
+                
+                <canvas id="canvas"></canvas>
+                
+                <div id="photoContainer">
+                    <img id="photo" alt="捕获的图像将显示在这里">
+                    <div id="photoTargetCircle"></div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="startCamera" class="button">打开相机</button>
+                    <button id="capturePhoto" class="button" disabled>拍照</button>
+                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    <button id="uploadButton" class="button">上传图片</button>
+                    <button id="analyzeButton" class="button" disabled>分析浓度</button>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="analyze-tab">
+                <div id="colorInfo">
+                    <h2>浓度分析结果</h2>
+                    <div id="colorDisplay"></div>
+                    
+                    <div class="result-panel">
+                        <div class="result-item">
+                            <div class="result-label">RGB值</div>
+                            <div id="rgbValue" class="result-value"></div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-label">HEX值</div>
+                            <div id="hexValue" class="result-value"></div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-label">LAB值</div>
+                            <div id="labValue" class="result-value"></div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-label">采样像素数</div>
+                            <div id="pixelCount" class="result-value"></div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-label">最近标准样本</div>
+                            <div id="closestReference" class="result-value"></div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-label">置信度</div>
+                            <div class="confidence-meter">
+                                <div id="confidenceLevel" class="confidence-level" style="width: 0%"></div>
+                            </div>
+                            <div id="confidenceValue" class="result-value"></div>
+                        </div>
+                        
+                        <div class="concentration-result">
+                            <div class="result-label">检测浓度</div>
+                            <span id="concentration" class="result-highlight"></span>
+                            <span>μM</span>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="saveResultButton" class="button">保存结果</button>
+                        <button id="recaptureButton" class="button">重新拍摄</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="history-tab">
+                <h2>历史记录</h2>
+                <div class="history-list" id="historyList">
+                    <!-- 历史记录将在这里显示 -->
+                </div>
+            </div>
+            
+            <div class="tab-content" id="settings-tab">
+                <h2>高级设置</h2>
+                
+                <div class="form-group">
+                    <label for="algorithmSelect">浓度计算算法</label>
+                    <select id="algorithmSelect" class="form-control">
+                        <option value="linear">线性插值</option>
+                        <option value="polynomial">多项式拟合</option>
+                        <option value="nearest">最近邻</option>
+                        <option value="weighted">加权平均</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="colorSpace">颜色空间</label>
+                    <select id="colorSpace" class="form-control">
+                        <option value="rgb">RGB</option>
+                        <option value="lab" selected>Lab (CIE L*a*b*)</option>
+                        <option value="hsv">HSV</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sampleSize">采样点大小 (像素)</label>
+                    <input type="range" id="sampleSize" class="range-slider" min="10" max="200" value="50">
+                    <div class="range-labels">
+                        <span>10px</span>
+                        <span>200px</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="outlierThreshold">异常值过滤阈值</label>
+                    <input type="range" id="outlierThreshold" class="range-slider" min="0" max="100" value="30">
+                    <div class="range-labels">
+                        <span>无过滤</span>
+                        <span>严格</span>
+                    </div>
+                </div>
+                
+                <div id="calibration">
+                    <h3>校准</h3>
+                    <p>使用已知浓度的样本进行校准，以提高准确度。</p>
+                    <button id="calibrateButton" class="button">开始校准</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="debug"></div>
+    </div>
+    <script>
+        // DOM元素
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const photo = document.getElementById('photo');
+        const startButton = document.getElementById('startCamera');
+        const captureButton = document.getElementById('capturePhoto');
+        const uploadButton = document.getElementById('uploadButton');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeButton = document.getElementById('analyzeButton');
+        const colorInfo = document.getElementById('colorInfo');
+        const colorDisplay = document.getElementById('colorDisplay');
+        const rgbValue = document.getElementById('rgbValue');
+        const hexValue = document.getElementById('hexValue');
+        const labValue = document.getElementById('labValue');
+        const colorDistance = document.getElementById('closestReference');
+        const concentration = document.getElementById('concentration');
+        const pixelCount = document.getElementById('pixelCount');
+        const targetCircle = document.getElementById('targetCircle');
+        const targetCircleText = document.getElementById('targetCircleText');
+        const photoTargetCircle = document.getElementById('photoTargetCircle');
+        const referenceScale = document.querySelector('.reference-scale');
+        const confidenceLevel = document.getElementById('confidenceLevel');
+        const confidenceValue = document.getElementById('confidenceValue');
+        const saveResultButton = document.getElementById('saveResultButton');
+        const recaptureButton = document.getElementById('recaptureButton');
+        const historyList = document.getElementById('historyList');
+        const algorithmSelect = document.getElementById('algorithmSelect');
+        const colorSpaceSelect = document.getElementById('colorSpace');
+        const sampleSizeSlider = document.getElementById('sampleSize');
+        const outlierThresholdSlider = document.getElementById('outlierThreshold');
+        
+        // Tabs
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        let stream = null;
+        let sampleSize = parseInt(sampleSizeSlider.value); // 圆形区域半径（像素）
+        let history = [];
+        
+        // 参考色值和对应浓度 - 根据您提供的图像创建
+        const referenceColors = [
+            { concentration: 1000, color: { r: 225, g: 179, b: 131 } }, // 橙褐色
+            { concentration: 700, color: { r: 231, g: 157, b: 121 } },  // 浅橙色
+            { concentration: 400, color: { r: 236, g: 152, b: 161 } },  // 粉红色
+            { concentration: 200, color: { r: 234, g: 140, b: 175 } },  // 深粉色
+            { concentration: 100, color: { r: 229, g: 136, b: 187 } },  // 玫红色
+            { concentration: 90, color: { r: 224, g: 134, b: 197 } },   // 浅紫色
+            { concentration: 80, color: { r: 217, g: 132, b: 203 } },   // 浅紫色
+            { concentration: 70, color: { r: 210, g: 131, b: 209 } },   // 中紫色
+            { concentration: 60, color: { r: 201, g: 132, b: 213 } },   // 紫色
+            { concentration: 50, color: { r: 193, g: 133, b: 217 } },   // 深紫色
+            { concentration: 40, color: { r: 183, g: 136, b: 220 } },   // 深紫色
+            { concentration: 30, color: { r: 171, g: 139, b: 222 } },   // 紫蓝色
+            { concentration: 20, color: { r: 159, g: 144, b: 224 } },   // 紫蓝色
+            { concentration: 10, color: { r: 145, g: 150, b: 225 } },   // 淡蓝色
+            { concentration: 7, color: { r: 132, g: 155, b: 226 } },    // 淡蓝色
+            { concentration: 5, color: { r: 117, g: 162, b: 227 } },    // 蓝色
+            { concentration: 3, color: { r: 101, g: 168, b: 228 } },    // 蓝色
+            { concentration: 1, color: { r: 83, g: 176, b: 228 } },     // 亮蓝色
+            { concentration: 0, color: { r: 68, g: 182, b: 229 } }      // 亮蓝色
+        ];
+        
+        // 生成参考色值比例尺
+        function createReferenceScale() {
+            referenceScale.innerHTML = '';
+            
+            referenceColors.forEach(ref => {
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'reference-color';
+                colorDiv.style.backgroundColor = `rgb(${ref.color.r}, ${ref.color.g}, ${ref.color.b})`;
+                
+                const label = document.createElement('div');
+                label.className = 'reference-label';
+                label.textContent = ref.concentration;
+                
+                colorDiv.appendChild(label);
+                referenceScale.appendChild(colorDiv);
+            });
+        }
+
+        // 页面加载时创建参考比例尺
+        window.addEventListener('load', () => {
+            createReferenceScale();
+            loadHistory();
+        });
+
+        // 启动相机
+        startButton.addEventListener('click', async () => {
+            try {
+                // 清理已有的流
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }, // 使用后置相机
+                    audio: false
+                });
+                
+                // 确保视频元素正确连接到流
+                video.srcObject = stream;
+                
+                // 显示视频和圆圈
+                video.style.display = 'block';
+                targetCircle.style.display = 'block';
+                targetCircle.classList.add('pulse');
+                targetCircleText.style.display = 'block';
+                
+                // 启用拍照按钮
+                captureButton.disabled = false;
+                startButton.disabled = true;
+                
+                // 确保视频播放
+                video.play();
+                
+                // 隐藏之前拍摄的照片
+                photo.style.display = 'none';
+                photoTargetCircle.style.display = 'none';
+                colorInfo.style.display = 'none';
+            } catch (err) {
+                console.error('无法访问相机: ', err);
+                alert('无法访问相机，请确保已授予权限或尝试上传图片。');
+            }
+        });
+
+        // 拍照
+        captureButton.addEventListener('click', () => {
+            // 设置canvas尺寸为视频当前尺寸
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // 绘制视频帧到canvas
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 将canvas内容转换为图像并显示
+            const dataUrl = canvas.toDataURL('image/png');
+            photo.src = dataUrl;
+            photo.style.display = 'block';
+            photoTargetCircle.style.display = 'block';
+            photoTargetCircle.classList.add('pulse');
+            
+            // 停止视频流
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.style.display = 'none';
+                targetCircle.style.display = 'none';
+                targetCircleText.style.display = 'none';
+            }
+            
+            startButton.disabled = false;
+            captureButton.disabled = true;
+            analyzeButton.disabled = false;
+            
+            // 切换到分析标签页
+            document.querySelector('.tab[data-tab="analyze"]').click();
+        });
+
+        // 上传图片
+        uploadButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    photo.src = event.target.result;
+                    photo.style.display = 'block';
+                    photoTargetCircle.style.display = 'block';
+                    photoTargetCircle.classList.add('pulse');
+                    analyzeButton.disabled = false;
+                    
+                    // 如果相机已开启，关闭它
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        video.style.display = 'none';
+                        targetCircle.style.display = 'none';
+                        targetCircleText.style.display = 'none';
+                        startButton.disabled = false;
+                        captureButton.disabled = true;
+                    }
+                    
+                    // 切换到分析标签页
+                    document.querySelector('.tab[data-tab="analyze"]').click();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 获取圆形区域内的所有像素
+        function getCirclePixels(context, centerX, centerY, radius) {
+            const pixels = [];
+            
+            // 获取以圆心为中心的正方形区域的像素数据
+            const squareSize = radius * 2;
+            const startX = Math.max(0, centerX - radius);
+            const startY = Math.max(0, centerY - radius);
+            const width = Math.min(context.canvas.width - startX, squareSize);
+            const height = Math.min(context.canvas.height - startY, squareSize);
+            
+            try {
+                const imageData = context.getImageData(startX, startY, width, height);
+                const data = imageData.data;
+                
+                // 遍历提取的矩形区域中的每个像素
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        // 计算相对于圆心的坐标
+                        const relativeX = (startX + x) - centerX;
+                        const relativeY = (startY + y) - centerY;
+                        
+                        // 计算到圆心的距离
+                        const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
+                        
+                        // 如果点在圆内，收集像素
+                        if (distance <= radius) {
+                            const index = (y * width + x) * 4;
+                            pixels.push({
+                                r: data[index],
+                                g: data[index + 1],
+                                b: data[index + 2]
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("获取像素时出错:", error);
+            }
+            
+            return pixels;
+        }
+
+        // 过滤异常像素值
+        function filterOutliers(pixels, threshold) {
+            if (pixels.length <= 3) return pixels; // 太少像素无法过滤
+            
+            // 计算均值
+            const avgR = pixels.reduce((sum, p) => sum + p.r, 0) / pixels.length;
+            const avgG = pixels.reduce((sum, p) => sum + p.g, 0) / pixels.length;
+            const avgB = pixels.reduce((sum, p) => sum + p.b, 0) / pixels.length;
+            
+            // 计算标准差
+            const stdR = Math.sqrt(pixels.reduce((sum, p) => sum + Math.pow(p.r - avgR, 2), 0) / pixels.length);
+            const stdG = Math.sqrt(pixels.reduce((sum, p) => sum + Math.pow(p.g - avgG, 2), 0) / pixels.length);
+            const stdB = Math.sqrt(pixels.reduce((sum, p) => sum + Math.pow(p.b - avgB, 2), 0) / pixels.length);
+            
+            // 过滤掉超出阈值的像素
+            const normThreshold = parseInt(outlierThresholdSlider.value) / 100 * 3; // 3个标准差为极端情况
+            
+            return pixels.filter(p => {
+                const zR = Math.abs(p.r - avgR) / (stdR || 1); // 避免除零
+                const zG = Math.abs(p.g - avgG) / (stdG || 1);
+                const zB = Math.abs(p.b - avgB) / (stdB || 1);
+                
+                // 如果任一颜色通道超出阈值，则过滤掉该像素
+                return (zR <= normThreshold) && (zG <= normThreshold) && (zB <= normThreshold);
+            });
+        }
+
+        // 计算平均颜色
+        function calculateAverageColor(pixels) {
+            if (pixels.length === 0) return { r: 0, g: 0, b: 0 };
+            
+            let totalR = 0, totalG = 0, totalB = 0;
+            
+            pixels.forEach(pixel => {
+                totalR += pixel.r;
+                totalG += pixel.g;
+                totalB += pixel.b;
+            });
+            
+            return {
+                r: Math.round(totalR / pixels.length),
+                g: Math.round(totalG / pixels.length),
+                b: Math.round(totalB / pixels.length)
+            };
+        }
+
+        // 计算两个颜色之间的距离（欧几里得距离）
+        function calculateColorDistance(color1, color2) {
+            const rDiff = color1.r - color2.r;
+            const gDiff = color1.g - color2.g;
+            const bDiff = color1.b - color2.b;
+            
+            return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+        }
+
+        // 分析浓度
+        function analyzeConcentration(r, g, b) {
+            const sampleColor = { r, g, b };
+            
+            // 找到最近的参考颜色
+            let closestReference = referenceColors[0];
+            let smallestDistance = calculateColorDistance(sampleColor, referenceColors[0].color);
+            
+            for (let i = 1; i < referenceColors.length; i++) {
+                const distance = calculateColorDistance(sampleColor, referenceColors[i].color);
+                if (distance < smallestDistance) {
+                    smallestDistance = distance;
+                    closestReference = referenceColors[i];
+                }
+            }
+            
+            // 找出第二近的参考色值用于插值
+            let secondClosestReference = null;
+            let secondSmallestDistance = Infinity;
+            
+            for (let i = 0; i < referenceColors.length; i++) {
+                const ref = referenceColors[i];
+                // 确保不与最近的参考颜色相同
+                if (ref === closestReference) continue;
+                
+                const distance = calculateColorDistance(sampleColor, ref.color);
+                if (distance < secondSmallestDistance) {
+                    secondSmallestDistance = distance;
+                    secondClosestReference = ref;
+                }
+            }
+            
+            // 使用线性插值计算浓度
+            let estimatedConcentration = closestReference.concentration;
+            
+            if (secondClosestReference) {
+                // 计算两个参考点的权重
+                const totalDistance = smallestDistance + secondSmallestDistance;
+                if (totalDistance > 0) {
+                    const weight1 = secondSmallestDistance / totalDistance;
+                    const weight2 = smallestDistance / totalDistance;
+                    
+                    estimatedConcentration =
+                        (closestReference.concentration * weight1) +
+                        (secondClosestReference.concentration * weight2);
+                }
+            }
+            
+            // 四舍五入到一位小数
+            estimatedConcentration = Math.round(estimatedConcentration * 10) / 10;
+            
+            // 计算置信度
+            const confidence = Math.round(100 * (1 - (smallestDistance / 442)));
+            
+            return {
+                concentration: estimatedConcentration,
+                confidence: Math.max(0, Math.min(100, confidence)),
+                closestRef: closestReference,
+                distance: smallestDistance
+            };
+        }
+
+        // 分析按钮点击事件
+        analyzeButton.addEventListener('click', () => {
+            // 将图像绘制到canvas用于分析
+            const tempCanvas = document.createElement('canvas');
+            const tempContext = tempCanvas.getContext('2d');
+            tempCanvas.width = photo.naturalWidth;
+            tempCanvas.height = photo.naturalHeight;
+            tempContext.drawImage(photo, 0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // 获取图像中心点
+            const centerX = Math.floor(tempCanvas.width / 2);
+            const centerY = Math.floor(tempCanvas.height / 2);
+            
+            // 确定圆形区域的半径（根据设置调整）
+            const imageRadius = parseInt(sampleSizeSlider.value);
+            
+            // 从圆形区域获取像素并计算平均值
+            let pixels = getCirclePixels(tempContext, centerX, centerY, imageRadius);
+            
+            // 过滤异常值
+            pixels = filterOutliers(pixels, parseInt(outlierThresholdSlider.value));
+            
+            // 显示像素采样数量
+            pixelCount.textContent = pixels.length;
+            
+            // 计算平均颜色
+            const avgColor = calculateAverageColor(pixels);
+            
+            // 分析平均颜色
+            const result = analyzeConcentration(avgColor.r, avgColor.g, avgColor.b);
+            
+            // RGB值
+            const rgb = `${avgColor.r}, ${avgColor.g}, ${avgColor.b}`;
+            
+            // HEX值
+            const hex = '#' + ((1 << 24) + (avgColor.r << 16) + (avgColor.g << 8) + avgColor.b).toString(16).slice(1).toUpperCase();
+            
+            // 显示结果
+            colorDisplay.style.backgroundColor = `rgb(${rgb})`;
+            rgbValue.textContent = rgb;
+            hexValue.textContent = hex;
+            labValue.textContent = `计算中...`;
+            colorDistance.textContent = `${result.closestRef.concentration} μM (距离: ${result.distance.toFixed(2)})`;
+            confidenceLevel.style.width = `${result.confidence}%`;
+            confidenceValue.textContent = `${result.confidence}%`;
+            concentration.textContent = result.concentration;
+            
+            colorInfo.style.display = 'block';
+            
+            // 添加结果显示的动画效果
+            colorDisplay.classList.add('pulse');
+            setTimeout(() => {
+                colorDisplay.classList.remove('pulse');
+            }, 2000);
+        });
+
+        // 保存结果到历史记录
+        saveResultButton.addEventListener('click', () => {
+            const rgb = rgbValue.textContent;
+            const conc = concentration.textContent;
+            const timestamp = new Date().toLocaleString();
+            
+            // 创建历史记录条目
+            const historyEntry = {
+                rgb: rgb,
+                concentration: conc,
+                timestamp: timestamp,
+                colorHex: hexValue.textContent
+            };
+            
+            // 添加到历史记录
+            history.unshift(historyEntry); // 将最新记录添加到开头
+            
+            // 最多保留20条记录
+            if (history.length > 20) {
+                history.pop();
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('concentrationHistory', JSON.stringify(history));
+            
+            // 更新历史记录显示
+            updateHistoryList();
+            
+            // 显示保存成功消息
+            alert('结果已保存到历史记录！');
+            
+            // 切换到历史标签页
+            document.querySelector('.tab[data-tab="history"]').click();
+        });
+
+        // 重新拍摄按钮
+        recaptureButton.addEventListener('click', () => {
+            // 切换到捕获标签页
+            document.querySelector('.tab[data-tab="capture"]').click();
+            
+            // 清除分析结果
+            colorInfo.style.display = 'none';
+            
+            // 重置分析按钮
+            analyzeButton.disabled = false;
+        });
+
+        // 加载历史记录
+        function loadHistory() {
+            const savedHistory = localStorage.getItem('concentrationHistory');
+            if (savedHistory) {
+                history = JSON.parse(savedHistory);
+                updateHistoryList();
+            }
+        }
+
+        // 更新历史记录列表
+        function updateHistoryList() {
+            historyList.innerHTML = '';
+            
+            if (history.length === 0) {
+                historyList.innerHTML = '<p>暂无历史记录</p>';
+                return;
+            }
+            
+            history.forEach((entry, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                
+                const colorSwatch = document.createElement('div');
+                colorSwatch.className = 'history-color';
+                colorSwatch.style.backgroundColor = `rgb(${entry.rgb})`;
+                
+                const info = document.createElement('div');
+                info.className = 'history-info';
+                info.innerHTML = `
+                    <div>${entry.concentration} μM</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">${entry.timestamp}</div>
+                `;
+                
+                const actions = document.createElement('div');
+                actions.className = 'history-actions';
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.addEventListener('click', () => {
+                    history.splice(index, 1);
+                    localStorage.setItem('concentrationHistory', JSON.stringify(history));
+                    updateHistoryList();
+                });
+                
+                actions.appendChild(deleteBtn);
+                
+                item.appendChild(colorSwatch);
+                item.appendChild(info);
+                item.appendChild(actions);
+                
+                historyList.appendChild(item);
+            });
+        }
+
+        // 监听设置变化
+        sampleSizeSlider.addEventListener('input', () => {
+            sampleSize = parseInt(sampleSizeSlider.value);
+            
+            // 更新UI中的圆圈大小
+            targetCircle.style.width = `${sampleSize * 2}px`;
+            targetCircle.style.height = `${sampleSize * 2}px`;
+            photoTargetCircle.style.width = `${sampleSize * 2}px`;
+            photoTargetCircle.style.height = `${sampleSize * 2}px`;
+        });
+
+        // 当视频元数据加载完成时调整圆圈
+        video.addEventListener('loadedmetadata', function() {
+            const videoWidth = video.offsetWidth;
+            const circleSize = Math.min(sampleSize * 2, videoWidth / 2);
+            
+            targetCircle.style.width = circleSize + 'px';
+            targetCircle.style.height = circleSize + 'px';
+        });
+
+        // 当页面加载和调整大小时更新圆圈位置
+        window.addEventListener('resize', function() {
+            const videoWidth = video.offsetWidth;
+            const circleSize = Math.min(sampleSize * 2, videoWidth / 2);
+            
+            targetCircle.style.width = circleSize + 'px';
+            targetCircle.style.height = circleSize + 'px';
+            
+            // 更新图片上的圆圈位置
+            if (photo.complete && photo.style.display !== 'none') {
+                const photoWidth = photo.offsetWidth;
+                const photoCircleSize = Math.min(sampleSize * 2, photoWidth / 2);
+                
+                photoTargetCircle.style.width = photoCircleSize + 'px';
+                photoTargetCircle.style.height = photoCircleSize + 'px';
+            }
+        });
+
+        // 当图片加载完成时调整圆圈
+        photo.addEventListener('load', function() {
+            const photoWidth = photo.offsetWidth;
+            const circleSize = Math.min(sampleSize * 2, photoWidth / 2);
+            
+            photoTargetCircle.style.width = circleSize + 'px';
+            photoTargetCircle.style.height = circleSize + 'px';
+        });
+            // 校准功能
+            const calibrateButton = document.getElementById('calibrateButton');
+            
+            calibrateButton.addEventListener('click', () => {
+                // 创建校准对话框
+                const calibrationDialog = document.createElement('div');
+                calibrationDialog.className = 'card';
+                calibrationDialog.style.position = 'fixed';
+                calibrationDialog.style.top = '50%';
+                calibrationDialog.style.left = '50%';
+                calibrationDialog.style.transform = 'translate(-50%, -50%)';
+                calibrationDialog.style.zIndex = '1000';
+                calibrationDialog.style.width = '90%';
+                calibrationDialog.style.maxWidth = '500px';
+                calibrationDialog.style.maxHeight = '80vh';
+                calibrationDialog.style.overflow = 'auto';
+                
+                calibrationDialog.innerHTML = `
+                    <h2>校准浓度检测器</h2>
+                    <p>使用已知浓度的样本进行校准。拍摄或上传标准样本图像，然后输入其已知浓度值。</p>
+                    
+                    <div class="form-group">
+                        <label for="knownConcentration">已知浓度 (μM)</label>
+                        <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="calibrateCaptureButton" class="button">拍摄校准样本</button>
+                        <button id="calibrateUploadButton" class="button">上传校准样本</button>
+                        <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(calibrationDialog);
+                
+                // 获取新创建的元素
+                const knownConcentrationInput = document.getElementById('knownConcentration');
+                const calibrateCaptureButton = document.getElementById('calibrateCaptureButton');
+                const calibrateUploadButton = document.getElementById('calibrateUploadButton');
+                const calibrateCancelButton = document.getElementById('calibrateCancelButton');
+                
+                // 校准取消按钮
+                calibrateCancelButton.addEventListener('click', () => {
+                    document.body.removeChild(calibrationDialog);
+                });
+                
+                // 校准拍摄按钮
+                calibrateCaptureButton.addEventListener('click', async () => {
+                    try {
+                        // 清理已有的流
+                        if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                        }
+                        
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: 'environment' },
+                            audio: false
+                        });
+                        
+                        // 创建临时视频元素
+                        const tempVideo = document.createElement('video');
+                        tempVideo.srcObject = stream;
+                        tempVideo.autoplay = true;
+                        tempVideo.playsinline = true;
+                        tempVideo.style.width = '100%';
+                        tempVideo.style.borderRadius = '8px';
+                        tempVideo.style.marginBottom = '16px';
+                        
+                        // 创建拍照按钮
+                        const tempCaptureButton = document.createElement('button');
+                        tempCaptureButton.className = 'button';
+                        tempCaptureButton.textContent = '拍摄校准样本';
+                        tempCaptureButton.style.width = '100%';
+                        
+                        // 清空对话框内容
+                        calibrationDialog.innerHTML = '';
+                        calibrationDialog.appendChild(tempVideo);
+                        
+                        // 添加标记圆圈
+                        const tempCircle = document.createElement('div');
+                        tempCircle.style.position = 'absolute';
+                        tempCircle.style.width = '100px';
+                        tempCircle.style.height = '100px';
+                        tempCircle.style.border = '2px dashed rgba(255, 255, 255, 0.8)';
+                        tempCircle.style.borderRadius = '50%';
+                        tempCircle.style.top = '50%';
+                        tempCircle.style.left = '50%';
+                        tempCircle.style.transform = 'translate(-50%, -50%)';
+                        calibrationDialog.appendChild(tempCircle);
+                        
+                        calibrationDialog.appendChild(tempCaptureButton);
+                        
+                        // 拍照按钮点击事件
+                        tempCaptureButton.addEventListener('click', () => {
+                            // 创建临时画布
+                            const tempCanvas = document.createElement('canvas');
+                            const tempContext = tempCanvas.getContext('2d');
+                            tempCanvas.width = tempVideo.videoWidth;
+                            tempCanvas.height = tempVideo.videoHeight;
+                            tempContext.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+                            
+                            // 获取图像数据
+                            const imageData = tempCanvas.toDataURL('image/png');
+                            
+                            // 停止视频流
+                            stream.getTracks().forEach(track => track.stop());
+                            
+                            // 更新校准对话框
+                            calibrationDialog.innerHTML = `
+                                <h2>确认校准样本</h2>
+                                <div style="position: relative; margin-bottom: 16px;">
+                                    <img id="calibrationPreview" src="${imageData}" style="width: 100%; border-radius: 8px;">
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; border: 2px dashed var(--primary); border-radius: 50%;"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="knownConcentration">已知浓度 (μM)</label>
+                                    <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1" value="${knownConcentrationInput.value || ''}">
+                                </div>
+                                
+                                <div class="button-group">
+                                    <button id="confirmCalibrationButton" class="button">确认添加校准点</button>
+                                    <button id="retakeCaptureButton" class="button">重新拍摄</button>
+                                    <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
+                                </div>
+                            `;
+                            
+                            // 重新获取按钮元素
+                            const confirmCalibrationButton = document.getElementById('confirmCalibrationButton');
+                            const retakeCaptureButton = document.getElementById('retakeCaptureButton');
+                            const cancelButton = document.getElementById('calibrateCancelButton');
+                            const calibrationPreview = document.getElementById('calibrationPreview');
+                            const knownConcentrationInput = document.getElementById('knownConcentration');
+                            
+                            // 确认按钮点击事件
+                            confirmCalibrationButton.addEventListener('click', () => {
+                                const concentration = parseFloat(knownConcentrationInput.value);
+                                
+                                if (isNaN(concentration) || concentration < 0) {
+                                    alert('请输入有效的浓度值');
+                                    return;
+                                }
+                                
+                                // 分析校准样本颜色
+                                const tempCanvas = document.createElement('canvas');
+                                const tempContext = tempCanvas.getContext('2d');
+                                tempCanvas.width = calibrationPreview.naturalWidth;
+                                tempCanvas.height = calibrationPreview.naturalHeight;
+                                tempContext.drawImage(calibrationPreview, 0, 0);
+                                
+                                // 获取图像中心点
+                                const centerX = Math.floor(tempCanvas.width / 2);
+                                const centerY = Math.floor(tempCanvas.height / 2);
+                                
+                                // 从圆形区域获取像素
+                                const pixels = getCirclePixels(tempContext, centerX, centerY, sampleSize);
+                                
+                                // 过滤异常值
+                                const filteredPixels = filterOutliers(pixels, parseInt(outlierThresholdSlider.value));
+                                
+                                // 计算平均颜色
+                                const avgColor = calculateAverageColor(filteredPixels);
+                                
+                                // 添加新的校准点
+                                const newCalibrationPoint = {
+                                    concentration: concentration,
+                                    color: {
+                                        r: avgColor.r,
+                                        g: avgColor.g,
+                                        b: avgColor.b
+                                    }
+                                };
+                                
+                                // 检查是否已存在相同浓度的校准点
+                                const existingIndex = referenceColors.findIndex(ref => ref.concentration === concentration);
+                                
+                                if (existingIndex >= 0) {
+                                    // 如果已存在，询问是否替换
+                                    if (confirm(`已存在浓度为 ${concentration} μM 的校准点。是否替换？`)) {
+                                        referenceColors[existingIndex] = newCalibrationPoint;
+                                    }
+                                } else {
+                                    // 添加新校准点
+                                    referenceColors.push(newCalibrationPoint);
+                                    
+                                    // 按浓度排序
+                                    referenceColors.sort((a, b) => b.concentration - a.concentration);
+                                }
+                                
+                                // 保存校准数据到本地存储
+                                localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
+                                
+                                // 更新参考色值比例尺
+                                createReferenceScale();
+                                
+                                // 关闭对话框
+                                document.body.removeChild(calibrationDialog);
+                                
+                                // 显示成功消息
+                                alert('校准点已添加！');
+                            });
+                            
+                            // 重新拍摄按钮
+                            retakeCaptureButton.addEventListener('click', () => {
+                                // 重新点击校准拍摄按钮
+                                calibrateCaptureButton.click();
+                            });
+                            
+                            // 取消按钮
+                            cancelButton.addEventListener('click', () => {
+                                document.body.removeChild(calibrationDialog);
+                            });
+                        });
+                        
+                    } catch (err) {
+                        console.error('无法访问相机: ', err);
+                        alert('无法访问相机，请确保已授予权限或尝试上传图片。');
+                    }
+                });
+                
+                // 上传校准样本按钮
+                calibrateUploadButton.addEventListener('click', () => {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = 'image/*';
+                    
+                    fileInput.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const imageUrl = event.target.result;
+                                
+                                // 更新校准对话框
+                                calibrationDialog.innerHTML = `
+                                    <h2>确认校准样本</h2>
+                                    <div style="position: relative; margin-bottom: 16px;">
+                                        <img id="calibrationPreview" src="${imageUrl}" style="width: 100%; border-radius: 8px;">
+                                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; border: 2px dashed var(--primary); border-radius: 50%;"></div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="knownConcentration">已知浓度 (μM)</label>
+                                        <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1" value="${knownConcentrationInput.value || ''}">
+                                    </div>
+                                    
+                                    <div class="button-group">
+                                        <button id="confirmCalibrationButton" class="button">确认添加校准点</button>
+                                        <button id="uploadAnotherButton" class="button">上传另一张</button>
+                                        <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
+                                    </div>
+                                `;
+                                
+                                // 重新获取按钮元素
+                                const confirmCalibrationButton = document.getElementById('confirmCalibrationButton');
+                                const uploadAnotherButton = document.getElementById('uploadAnotherButton');
+                                const cancelButton = document.getElementById('calibrateCancelButton');
+                                const calibrationPreview = document.getElementById('calibrationPreview');
+                                const knownConcentrationInput = document.getElementById('knownConcentration');
+                                
+                                // 确认按钮点击事件
+                                confirmCalibrationButton.addEventListener('click', () => {
+                                    const concentration = parseFloat(knownConcentrationInput.value);
+                                    
+                                    if (isNaN(concentration) || concentration < 0) {
+                                        alert('请输入有效的浓度值');
+                                        return;
+                                    }
+                                    
+                                    // 等待图像加载完成
+                                    calibrationPreview.onload = () => {
+                                        // 分析校准样本颜色
+                                        const tempCanvas = document.createElement('canvas');
+                                        const tempContext = tempCanvas.getContext('2d');
+                                        tempCanvas.width = calibrationPreview.naturalWidth;
+                                        tempCanvas.height = calibrationPreview.naturalHeight;
+                                        tempContext.drawImage(calibrationPreview, 0, 0);
+                                        
+                                        // 获取图像中心点
+                                        const centerX = Math.floor(tempCanvas.width / 2);
+                                        const centerY = Math.floor(tempCanvas.height / 2);
+                                        
+                                        // 从圆形区域获取像素
+                                        const pixels = getCirclePixels(tempContext, centerX, centerY, sampleSize);
+                                        
+                                        // 过滤异常值
+                                        const filteredPixels = filterOutliers(pixels, parseInt(outlierThresholdSlider.value));
+                                        
+                                        // 计算平均颜色
+                                        const avgColor = calculateAverageColor(filteredPixels);
+                                        
+                                        // 添加新的校准点
+                                        const newCalibrationPoint = {
+                                            concentration: concentration,
+                                            color: {
+                                                r: avgColor.r,
+                                                g: avgColor.g,
+                                                b: avgColor.b
+                                            }
+                                        };
+                                        
+                                        // 检查是否已存在相同浓度的校准点
+                                        const existingIndex = referenceColors.findIndex(ref => ref.concentration === concentration);
+                                        
+                                        if (existingIndex >= 0) {
+                                            // 如果已存在，询问是否替换
+                                            if (confirm(`已存在浓度为 ${concentration} μM 的校准点。是否替换？`)) {
+                                                referenceColors[existingIndex] = newCalibrationPoint;
+                                            }
+                                        } else {
+                                            // 添加新校准点
+                                            referenceColors.push(newCalibrationPoint);
+                                            
+                                            // 按浓度排序
+                                            referenceColors.sort((a, b) => b.concentration - a.concentration);
+                                        }
+                                        
+                                        // 保存校准数据到本地存储
+                                        localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
+                                        
+                                        // 更新参考色值比例尺
+                                        createReferenceScale();
+                                        
+                                        // 关闭对话框
+                                        document.body.removeChild(calibrationDialog);
+                                        
+                                        // 显示成功消息
+                                        alert('校准点已添加！');
+                                    };
+                                    
+                                    // 确保图像已加载
+                                    if (calibrationPreview.complete) {
+                                        calibrationPreview.onload();
+                                    }
+                                });
+                                
+                                // 上传另一张按钮
+                                uploadAnotherButton.addEventListener('click', () => {
+                                    fileInput.click();
+                                });
+                                
+                                // 取消按钮
+                                cancelButton.addEventListener('click', () => {
+                                    document.body.removeChild(calibrationDialog);
+                                });
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    };
+                    
+                    fileInput.click();
+                });
+            });
+
+            // 添加导出校准数据功能
+            function exportCalibrationData() {
+                const dataStr = JSON.stringify(referenceColors, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportFileName = 'calibration_data_' + new Date().toISOString().slice(0, 10) + '.json';
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileName);
+                linkElement.click();
+            }
+
+            // 添加导入校准数据功能
+            function importCalibrationData(file) {
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        
+                        // 验证数据结构
+                        if (Array.isArray(importedData) && importedData.length > 0 &&
+                            importedData[0].hasOwnProperty('concentration') &&
+                            importedData[0].hasOwnProperty('color')) {
+                            
+                            // 更新参考色值
+                            referenceColors = importedData;
+                            
+                            // 保存到本地存储
+                            localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
+                            
+                            // 更新参考色值比例尺
+                            createReferenceScale();
+                            
+                            alert('校准数据导入成功！');
+                        } else {
+                            alert('导入失败：无效的校准数据格式');
+                        }
+                    } catch (error) {
+                        console.error('导入校准数据时出错:', error);
+                        alert('导入失败：' + error.message);
+                    }
+                };
+                
+                reader.readAsText(file);
+            }
+
+            // 添加导出/导入按钮到设置标签页
+            const settingsTab = document.getElementById('settings-tab');
+            const exportImportSection = document.createElement('div');
+            exportImportSection.style.marginTop = '24px';
+            exportImportSection.innerHTML = `
+                <h3>导出/导入校准数据</h3>
+                <p>您可以导出当前校准数据以备份，或导入之前保存的校准数据。</p>
+                <div class="button-group">
+                    <button id="exportDataButton" class="button">导出校准数据</button>
+                    <input type="file" id="importDataInput" accept=".json" style="display: none;">
+                    <button id="importDataButton" class="button">导入校准数据</button>
+                    <button id="resetDataButton" class="button" style="background-color: #f44336;">重置为默认值</button>
+                </div>
+            `;
+
+            settingsTab.appendChild(exportImportSection);
+
+            // 绑定导出/导入按钮事件
+            document.getElementById('exportDataButton').addEventListener('click', exportCalibrationData);
+
+            document.getElementById('importDataButton').addEventListener('click', () => {
+                document.getElementById('importDataInput').click();
+            });
+
+            document.getElementById('importDataInput').addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    importCalibrationData(e.target.files[0]);
+                }
+            });
+
+            // 重置校准数据
+            document.getElementById('resetDataButton').addEventListener('click', () => {
+                if (confirm('确定要重置所有校准数据吗？此操作将恢复默认参考色值，且无法撤销。')) {
+                    // 从本地存储中移除校准数据
+                    localStorage.removeItem('calibrationData');
+                    
+                    // 恢复默认参考色值
+                    referenceColors = [
+                        { concentration: 1000, color: { r: 225, g: 179, b: 131 } }, // 橙褐色
+                        { concentration: 700, color: { r: 231, g: 157, b: 121 } },  // 浅橙色
+                        { concentration: 400, color: { r: 236, g: 152, b: 161 } },  // 粉红色
+                        { concentration: 200, color: { r: 234, g: 140, b: 175 } },  // 深粉色
+                        { concentration: 100, color: { r: 229, g: 136, b: 187 } },  // 玫红色
+                        { concentration: 90, color: { r: 224, g: 134, b: 197 } },   // 浅紫色
+                        { concentration: 80, color: { r: 217, g: 132, b: 203 } },   // 浅紫色
+                        { concentration: 70, color: { r: 210, g: 131, b: 209 } },   // 中紫色
+                        { concentration: 60, color: { r: 201, g: 132, b: 213 } },   // 紫色
+                        { concentration: 50, color: { r: 193, g: 133, b: 217 } },   // 深紫色
+                        { concentration: 40, color: { r: 183, g: 136, b: 220 } },   // 深紫色
+                        { concentration: 30, color: { r: 171, g: 139, b: 222 } },   // 紫蓝色
+                        { concentration: 20, color: { r: 159, g: 144, b: 224 } },   // 紫蓝色
+                        { concentration: 10, color: { r: 145, g: 150, b: 225 } },   // 淡蓝色
+                        { concentration: 7, color: { r: 132, g: 155, b: 226 } },    // 淡蓝色
+                        { concentration: 5, color: { r: 117, g: 162, b: 227 } },    // 蓝色
+                        { concentration: 3, color: { r: 101, g: 168, b: 228 } },    // 蓝色
+                        { concentration: 1, color: { r: 83, g: 176, b: 228 } },     // 亮蓝色
+                        { concentration: 0, color: { r: 68, g: 182, b: 229 } }      // 亮蓝色
+                    ];
+                    
+                    // 更新参考色值比例尺
+                    createReferenceScale();
+                    
+                    alert('校准数据已重置为默认值！');
+                }
+            });
+
+            // 加载保存的校准数据
+            function loadCalibrationData() {
+                const savedCalibration = localStorage.getItem('calibrationData');
+                if (savedCalibration) {
+                    try {
+                        const parsedData = JSON.parse(savedCalibration);
+                        
+                        // 验证数据结构
+                        if (Array.isArray(parsedData) && parsedData.length > 0 &&
+                            parsedData[0].hasOwnProperty('concentration') &&
+                            parsedData[0].hasOwnProperty('color')) {
+                            
+                            referenceColors = parsedData;
+                            createReferenceScale();
+                        }
+                    } catch (error) {
+                        console.error('加载校准数据时出错:', error);
+                    }
+                }
+            }
+
+            // 页面加载时加载校准数据
+            window.addEventListener('load', loadCalibrationData);
+    </script>
+</body>
+</html>
