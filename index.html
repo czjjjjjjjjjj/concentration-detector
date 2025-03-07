@@ -445,16 +445,38 @@
         .tab-content.active {
             display: block;
         }
+        .detection-type-container {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .detection-type {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .detection-type.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
         <div class="app-header">
-            <h1>浓度检测器</h1>
-            <p>拍摄样本或上传图片进行浓度分析</p>
+            <h1 id="appTitle">浓度检测器</h1>
+            <p id="appDescription">拍摄样本或上传图片进行浓度分析</p>
         </div>
         
         <div class="card">
+            <div class="detection-type-container">
+                <div class="detection-type active" data-type="tetracycline">四环素检测</div>
+                <div class="detection-type" data-type="creatinine">肌酐检测</div>
+            </div>
             <div class="tab-container">
                 <div class="tab active" data-tab="capture">捕获图像</div>
                 <div class="tab" data-tab="analyze">分析</div>
@@ -573,7 +595,7 @@
                 
                 <div class="form-group">
                     <label for="sampleSize">采样点大小 (像素)</label>
-                    <input type="range" id="sampleSize" class="range-slider" min="10" max="200" value="50">
+                    <input type="range" id="sampleSize" class="range-slider" min="10" max="200" value="70">
                     <div class="range-labels">
                         <span>10px</span>
                         <span>200px</span>
@@ -587,12 +609,6 @@
                         <span>无过滤</span>
                         <span>严格</span>
                     </div>
-                </div>
-                
-                <div id="calibration">
-                    <h3>校准</h3>
-                    <p>使用已知浓度的样本进行校准，以提高准确度。</p>
-                    <button id="calibrateButton" class="button">开始校准</button>
                 </div>
             </div>
         </div>
@@ -644,7 +660,8 @@
                 document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
             });
         });
-        
+        // 当前检测类型
+        let currentDetectionType = 'tetracycline';
         let stream = null;
         let sampleSize = parseInt(sampleSizeSlider.value); // 圆形区域半径（像素）
         let history = [];
@@ -671,31 +688,90 @@
             { concentration: 1, color: { r: 83, g: 176, b: 228 } },     // 亮蓝色
             { concentration: 0, color: { r: 68, g: 182, b: 229 } }      // 亮蓝色
         ];
-        
+        // 肌酐检测的参考色值
+        const creatinineReferenceColors = [
+            // 健康区域 - 前四个点（红色区域）
+            { status: "healthy", label: "健康", color: { r: 255, g: 50, b: 50 } },
+            { status: "healthy", label: "健康", color: { r: 255, g: 70, b: 70 } },
+            { status: "healthy", label: "健康", color: { r: 245, g: 90, b: 90 } },
+            { status: "healthy", label: "健康", color: { r: 235, g: 120, b: 110 } },
+            
+            // 风险区域 - 第五个点（过渡色）
+            { status: "risk", label: "有风险", color: { r: 200, g: 180, b: 160 } },
+            
+            // 高浓度区域 - 最后三个点（绿色区域）
+            { status: "high", label: "肌酐浓度高", color: { r: 100, g: 220, b: 180 } },
+            { status: "high", label: "肌酐浓度高", color: { r: 80, g: 230, b: 200 } },
+            { status: "high", label: "肌酐浓度高", color: { r: 60, g: 240, b: 220 } }
+        ];
         // 生成参考色值比例尺
         function createReferenceScale() {
             referenceScale.innerHTML = '';
             
-            referenceColors.forEach(ref => {
-                const colorDiv = document.createElement('div');
-                colorDiv.className = 'reference-color';
-                colorDiv.style.backgroundColor = `rgb(${ref.color.r}, ${ref.color.g}, ${ref.color.b})`;
-                
-                const label = document.createElement('div');
-                label.className = 'reference-label';
-                label.textContent = ref.concentration;
-                
-                colorDiv.appendChild(label);
-                referenceScale.appendChild(colorDiv);
-            });
+            if (currentDetectionType === 'tetracycline') {
+                referenceColors.forEach(ref => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'reference-color';
+                    colorDiv.style.backgroundColor = `rgb(${ref.color.r}, ${ref.color.g}, ${ref.color.b})`;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'reference-label';
+                    label.textContent = ref.concentration;
+                    
+                    colorDiv.appendChild(label);
+                    referenceScale.appendChild(colorDiv);
+                });
+            } else {
+                creatinineReferenceColors.forEach((ref, index) => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'reference-color';
+                    colorDiv.style.backgroundColor = `rgb(${ref.color.r}, ${ref.color.g}, ${ref.color.b})`;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'reference-label';
+                    label.textContent = index + 1;
+                    
+                    colorDiv.appendChild(label);
+                    referenceScale.appendChild(colorDiv);
+                });
+            }
         }
-
         // 页面加载时创建参考比例尺
         window.addEventListener('load', () => {
             createReferenceScale();
             loadHistory();
         });
+        // 检测类型切换
+        const detectionTypes = document.querySelectorAll('.detection-type');
+        detectionTypes.forEach(type => {
+            type.addEventListener('click', () => {
+                detectionTypes.forEach(t => t.classList.remove('active'));
+                type.classList.add('active');
+                
+                currentDetectionType = type.dataset.type;
+                createReferenceScale();
+                
+                // 更新标题和描述
+                const appTitle = document.getElementById('appTitle');
+                const appDescription = document.getElementById('appDescription');
 
+                if (currentDetectionType === 'tetracycline') {
+                    appTitle.textContent = '四环素浓度检测器';
+                    appDescription.textContent = '拍摄样本或上传图片进行四环素浓度分析';
+                } else {
+                    appTitle.textContent = '肌酐检测器';
+                    appDescription.textContent = '拍摄样本或上传图片进行肌酐水平分析';
+                }
+                
+                // 重置分析结果
+                colorInfo.style.display = 'none';
+                
+                // 如果有照片，启用分析按钮
+                if (photo.style.display === 'block') {
+                    analyzeButton.disabled = false;
+                }
+            });
+        });
         // 启动相机
         startButton.addEventListener('click', async () => {
             try {
@@ -764,8 +840,7 @@
             captureButton.disabled = true;
             analyzeButton.disabled = false;
             
-            // 切换到分析标签页
-            document.querySelector('.tab[data-tab="analyze"]').click();
+          
         });
 
         // 上传图片
@@ -794,8 +869,6 @@
                         captureButton.disabled = true;
                     }
                     
-                    // 切换到分析标签页
-                    document.querySelector('.tab[data-tab="analyze"]').click();
                 };
                 reader.readAsDataURL(file);
             }
@@ -892,13 +965,49 @@
 
         // 计算两个颜色之间的距离（欧几里得距离）
         function calculateColorDistance(color1, color2) {
-            const rDiff = color1.r - color2.r;
-            const gDiff = color1.g - color2.g;
-            const bDiff = color1.b - color2.b;
+            const colorSpace = colorSpaceSelect.value;
             
-            return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+            switch(colorSpace) {
+                case 'lab':
+                    // 在Lab空间中计算颜色距离
+                    const lab1 = rgbToLab(color1.r, color1.g, color1.b);
+                    const lab2 = rgbToLab(color2.r, color2.g, color2.b);
+                    
+                    // 使用deltaE(CIE76)公式
+                    const deltaL = lab1.l - lab2.l;
+                    const deltaA = lab1.a - lab2.a;
+                    const deltaB = lab1.b - lab2.b;
+                    
+                    return Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
+                    
+                case 'hsv':
+                    // 在HSV空间中计算颜色距离
+                    const hsv1 = rgbToHsv(color1.r, color1.g, color1.b);
+                    const hsv2 = rgbToHsv(color2.r, color2.g, color2.b);
+                    
+                    // 处理色相的环形特性（0°和360°是相同的）
+                    let deltaH = Math.abs(hsv1.h - hsv2.h);
+                    if (deltaH > 180) deltaH = 360 - deltaH;
+                    
+                    // 归一化到0-1范围
+                    deltaH = deltaH / 180.0;
+                    
+                    const deltaS = hsv1.s - hsv2.s;
+                    const deltaV = hsv1.v - hsv2.v;
+                    
+                    // 加权HSV距离，通常色相比饱和度和明度更重要
+                    return Math.sqrt(4 * deltaH * deltaH + deltaS * deltaS + deltaV * deltaV);
+                    
+                case 'rgb':
+                default:
+                    // 在RGB空间中计算欧几里得距离
+                    const rDiff = color1.r - color2.r;
+                    const gDiff = color1.g - color2.g;
+                    const bDiff = color1.b - color2.b;
+                    
+                    return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+            }
         }
-
         // 分析浓度
         function analyzeConcentration(r, g, b) {
             const sampleColor = { r, g, b };
@@ -907,44 +1016,93 @@
             let closestReference = referenceColors[0];
             let smallestDistance = calculateColorDistance(sampleColor, referenceColors[0].color);
             
-            for (let i = 1; i < referenceColors.length; i++) {
-                const distance = calculateColorDistance(sampleColor, referenceColors[i].color);
-                if (distance < smallestDistance) {
-                    smallestDistance = distance;
-                    closestReference = referenceColors[i];
-                }
-            }
+            // 找出所有参考颜色的距离，并按距离排序
+            let colorDistances = referenceColors.map(ref => {
+                return {
+                    reference: ref,
+                    distance: calculateColorDistance(sampleColor, ref.color)
+                };
+            }).sort((a, b) => a.distance - b.distance);
             
-            // 找出第二近的参考色值用于插值
-            let secondClosestReference = null;
-            let secondSmallestDistance = Infinity;
+            closestReference = colorDistances[0].reference;
+            smallestDistance = colorDistances[0].distance;
+            let secondClosestReference = colorDistances[1].reference;
+            let secondSmallestDistance = colorDistances[1].distance;
             
-            for (let i = 0; i < referenceColors.length; i++) {
-                const ref = referenceColors[i];
-                // 确保不与最近的参考颜色相同
-                if (ref === closestReference) continue;
-                
-                const distance = calculateColorDistance(sampleColor, ref.color);
-                if (distance < secondSmallestDistance) {
-                    secondSmallestDistance = distance;
-                    secondClosestReference = ref;
-                }
-            }
-            
-            // 使用线性插值计算浓度
+            // 根据选择的算法计算浓度
             let estimatedConcentration = closestReference.concentration;
+            const algorithm = algorithmSelect.value;
             
-            if (secondClosestReference) {
-                // 计算两个参考点的权重
-                const totalDistance = smallestDistance + secondSmallestDistance;
-                if (totalDistance > 0) {
-                    const weight1 = secondSmallestDistance / totalDistance;
-                    const weight2 = smallestDistance / totalDistance;
+            switch(algorithm) {
+                case 'nearest':
+                    // 最近邻算法 - 直接使用最接近的参考点
+                    estimatedConcentration = closestReference.concentration;
+                    break;
                     
-                    estimatedConcentration =
-                        (closestReference.concentration * weight1) +
-                        (secondClosestReference.concentration * weight2);
-                }
+                case 'linear':
+                    // 线性插值算法 - 在最近的两个参考点之间进行线性插值
+                    if (closestReference.concentration !== secondClosestReference.concentration) {
+                        const totalDistance = smallestDistance + secondSmallestDistance;
+                        if (totalDistance > 0) {
+                            const weight1 = secondSmallestDistance / totalDistance;
+                            const weight2 = smallestDistance / totalDistance;
+                            
+                            estimatedConcentration =
+                                (closestReference.concentration * weight1) +
+                                (secondClosestReference.concentration * weight2);
+                        }
+                    }
+                    break;
+                    
+                case 'polynomial':
+                    // 多项式拟合算法 - 使用3-4个最近点进行加权计算
+                    if (colorDistances.length >= 3) {
+                        let weightSum = 0;
+                        let concentrationSum = 0;
+                        
+                        // 使用距离的平方倒数作为权重，考虑最近的4个点
+                        for (let i = 0; i < Math.min(4, colorDistances.length); i++) {
+                            const distSquareInv = 1 / Math.pow(colorDistances[i].distance + 0.001, 2);
+                            weightSum += distSquareInv;
+                            concentrationSum += colorDistances[i].reference.concentration * distSquareInv;
+                        }
+                        
+                        if (weightSum > 0) {
+                            estimatedConcentration = concentrationSum / weightSum;
+                        }
+                    }
+                    break;
+                    
+                case 'weighted':
+                    // 加权平均算法 - 考虑所有参考点，但权重随距离增加而减小
+                    let weightSum = 0;
+                    let concentrationSum = 0;
+                    
+                    colorDistances.forEach(cd => {
+                        // 距离越远，权重越小（使用高斯权重）
+                        const weight = Math.exp(-Math.pow(cd.distance / 30, 2));
+                        weightSum += weight;
+                        concentrationSum += cd.reference.concentration * weight;
+                    });
+                    
+                    if (weightSum > 0) {
+                        estimatedConcentration = concentrationSum / weightSum;
+                    }
+                    break;
+                    
+                default:
+                    // 默认使用线性插值
+                    if (closestReference.concentration !== secondClosestReference.concentration) {
+                        const totalDistance = smallestDistance + secondSmallestDistance;
+                        if (totalDistance > 0) {
+                            const weight1 = secondSmallestDistance / totalDistance;
+                            const weight2 = smallestDistance / totalDistance;
+                            
+                            estimatedConcentration =
+                                (closestReference.concentration * weight1) +
+                                (secondClosestReference.concentration * weight2);
+                        }
+                    }
             }
             
             // 四舍五入到一位小数
@@ -960,7 +1118,34 @@
                 distance: smallestDistance
             };
         }
-
+        // 分析肌酐结果
+        function analyzeCreatinine(r, g, b) {
+            const sampleColor = { r, g, b };
+            
+            // 找到最近的参考颜色
+            let colorDistances = creatinineReferenceColors.map(ref => {
+                return {
+                    reference: ref,
+                    distance: calculateColorDistance(sampleColor, ref.color)
+                };
+            }).sort((a, b) => a.distance - b.distance);
+            
+            const closestReference = colorDistances[0].reference;
+            const smallestDistance = colorDistances[0].distance;
+            
+            // 计算置信度
+            const maxDistance = 442; // RGB空间中的最大距离
+            const confidence = Math.round(100 * (1 - (smallestDistance / maxDistance)));
+            
+            return {
+                status: closestReference.status,
+                label: closestReference.label,
+                confidence: Math.max(0, Math.min(100, confidence)),
+                closestRef: closestReference,
+                distance: smallestDistance
+            };
+        }
+        // 分析按钮点击事件
         // 分析按钮点击事件
         analyzeButton.addEventListener('click', () => {
             // 将图像绘制到canvas用于分析
@@ -989,26 +1174,103 @@
             // 计算平均颜色
             const avgColor = calculateAverageColor(pixels);
             
-            // 分析平均颜色
-            const result = analyzeConcentration(avgColor.r, avgColor.g, avgColor.b);
-            
             // RGB值
             const rgb = `${avgColor.r}, ${avgColor.g}, ${avgColor.b}`;
             
             // HEX值
             const hex = '#' + ((1 << 24) + (avgColor.r << 16) + (avgColor.g << 8) + avgColor.b).toString(16).slice(1).toUpperCase();
             
-            // 显示结果
+            // 显示颜色信息
             colorDisplay.style.backgroundColor = `rgb(${rgb})`;
             rgbValue.textContent = rgb;
             hexValue.textContent = hex;
-            labValue.textContent = `计算中...`;
-            colorDistance.textContent = `${result.closestRef.concentration} μM (距离: ${result.distance.toFixed(2)})`;
-            confidenceLevel.style.width = `${result.confidence}%`;
-            confidenceValue.textContent = `${result.confidence}%`;
-            concentration.textContent = result.concentration;
+            
+            // 计算Lab值
+            const labColor = rgbToLab(avgColor.r, avgColor.g, avgColor.b);
+            // 更新Lab值显示
+            setTimeout(() => {
+                labValue.textContent = `L: ${labColor.l.toFixed(1)}, a: ${labColor.a.toFixed(1)}, b: ${labColor.b.toFixed(1)}`;
+            }, 500);
+            
+            if (currentDetectionType === 'tetracycline') {
+                // 分析四环素浓度
+                const result = analyzeConcentration(avgColor.r, avgColor.g, avgColor.b);
+                
+                colorDistance.textContent = `${result.closestRef.concentration} μM (距离: ${result.distance.toFixed(2)})`;
+                confidenceLevel.style.width = `${result.confidence}%`;
+                confidenceValue.textContent = `${result.confidence}%`;
+                concentration.textContent = result.concentration;
+                
+                // 显示浓度块
+                document.querySelector('.concentration-result').style.display = 'block';
+                
+                // 隐藏状态块（如果存在）
+                if (document.getElementById('statusResult')) {
+                    document.getElementById('statusResult').style.display = 'none';
+                }
+            } else {
+                // 分析肌酐状态
+                const result = analyzeCreatinine(avgColor.r, avgColor.g, avgColor.b);
+                
+                colorDistance.textContent = `${result.label} (距离: ${result.distance.toFixed(2)})`;
+                confidenceLevel.style.width = `${result.confidence}%`;
+                confidenceValue.textContent = `${result.confidence}%`;
+                
+                // 隐藏浓度块
+                document.querySelector('.concentration-result').style.display = 'none';
+                
+                // 创建或显示状态块
+                let statusDiv = document.getElementById('statusResult');
+                if (!statusDiv) {
+                    statusDiv = document.createElement('div');
+                    statusDiv.id = 'statusResult';
+                    statusDiv.className = 'concentration-result';
+                    
+                    const statusLabel = document.createElement('div');
+                    statusLabel.className = 'result-label';
+                    statusLabel.textContent = '检测结果';
+                    
+                    const statusValue = document.createElement('span');
+                    statusValue.id = 'statusValue';
+                    statusValue.className = 'result-highlight';
+                    
+                    const statusDescription = document.createElement('p');
+                    statusDescription.id = 'statusDescription';
+                    statusDescription.style.marginTop = '8px';
+                    
+                    statusDiv.appendChild(statusLabel);
+                    statusDiv.appendChild(statusValue);
+                    statusDiv.appendChild(statusDescription);
+                    
+                    document.querySelector('.concentration-result').parentNode.appendChild(statusDiv);
+                } else {
+                    statusDiv.style.display = 'block';
+                }
+                
+                // 更新状态显示和样式
+                const statusValue = document.getElementById('statusValue');
+                const statusDescription = document.getElementById('statusDescription');
+                
+                statusValue.textContent = result.label;
+                
+                // 根据状态设置颜色和描述
+                if (result.status === 'healthy') {
+                    statusDiv.style.backgroundColor = '#BBDEFB'; // 蓝色背景
+                    statusValue.style.color = '#1976D2';
+                    statusDescription.textContent = '肌酐水平正常，无需特别处理。';
+                } else if (result.status === 'risk') {
+                    statusDiv.style.backgroundColor = '#FFE0B2'; // 橙色背景
+                    statusValue.style.color = '#E65100';
+                    statusDescription.textContent = '肌酐水平存在风险，建议增加水分摄入并留意饮食。';
+                } else {
+                    statusDiv.style.backgroundColor = '#FFCDD2'; // 红色背景
+                    statusValue.style.color = '#C62828';
+                    statusDescription.textContent = '肌酐浓度高，建议就医检查。';
+                }
+            }
             
             colorInfo.style.display = 'block';
+            document.querySelector('.tab[data-tab="analyze"]').click();
             
             // 添加结果显示的动画效果
             colorDisplay.classList.add('pulse');
@@ -1016,42 +1278,99 @@
                 colorDisplay.classList.remove('pulse');
             }, 2000);
         });
+            // 然后在script标签的底部（在最后一个 }); 前）添加以下RGB到Lab的转换函数：
 
-        // 保存结果到历史记录
-        saveResultButton.addEventListener('click', () => {
-            const rgb = rgbValue.textContent;
-            const conc = concentration.textContent;
-            const timestamp = new Date().toLocaleString();
-            
-            // 创建历史记录条目
-            const historyEntry = {
-                rgb: rgb,
-                concentration: conc,
-                timestamp: timestamp,
-                colorHex: hexValue.textContent
-            };
-            
-            // 添加到历史记录
-            history.unshift(historyEntry); // 将最新记录添加到开头
-            
-            // 最多保留20条记录
-            if (history.length > 20) {
-                history.pop();
+            // RGB转XYZ函数
+            function rgbToXyz(r, g, b) {
+                // 归一化RGB值到0-1
+                r = r / 255;
+                g = g / 255;
+                b = b / 255;
+                
+                // 应用gamma校正
+                r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+                g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+                b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+                
+                // 转换到XYZ
+                const x = r * 0.4124 + g * 0.3576 + b * 0.1805;
+                const y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+                const z = r * 0.0193 + g * 0.1192 + b * 0.9505;
+                
+                return { x: x * 100, y: y * 100, z: z * 100 };
             }
-            
-            // 保存到本地存储
-            localStorage.setItem('concentrationHistory', JSON.stringify(history));
-            
-            // 更新历史记录显示
-            updateHistoryList();
-            
-            // 显示保存成功消息
-            alert('结果已保存到历史记录！');
-            
-            // 切换到历史标签页
-            document.querySelector('.tab[data-tab="history"]').click();
-        });
 
+            // XYZ转Lab函数
+            function xyzToLab(x, y, z) {
+                // D65参考白点
+                const refX = 95.047;
+                const refY = 100.0;
+                const refZ = 108.883;
+                
+                x = x / refX;
+                y = y / refY;
+                z = z / refZ;
+                
+                x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
+                y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
+                z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
+                
+                const l = (116 * y) - 16;
+                const a = 500 * (x - y);
+                const b = 200 * (y - z);
+                
+                return { l, a, b };
+            }
+
+            // RGB直接转Lab函数
+            function rgbToLab(r, g, b) {
+                const xyz = rgbToXyz(r, g, b);
+                return xyzToLab(xyz.x, xyz.y, xyz.z);
+            }
+
+                                           // 保存结果到历史记录
+                                           saveResultButton.addEventListener('click', () => {
+                                               const rgb = rgbValue.textContent;
+                                               const timestamp = new Date().toLocaleString();
+                                               let result, type;
+                                               
+                                               if (currentDetectionType === 'tetracycline') {
+                                                   result = concentration.textContent + ' μM';
+                                                   type = '四环素';
+                                               } else {
+                                                   result = document.getElementById('statusValue').textContent;
+                                                   type = '肌酐';
+                                               }
+                                               
+                                               // 创建历史记录条目
+                                               const historyEntry = {
+                                                   rgb: rgb,
+                                                   result: result,
+                                                   type: type,
+                                                   timestamp: timestamp,
+                                                   colorHex: hexValue.textContent
+                                               };
+                                               
+                                               // 添加到历史记录
+                                               history.unshift(historyEntry); // 将最新记录添加到开头
+                                               
+                                               // 最多保留20条记录
+                                               if (history.length > 20) {
+                                                   history.pop();
+                                               }
+                                               
+                                               // 保存到本地存储
+                                               localStorage.setItem('concentrationHistory', JSON.stringify(history));
+                                               
+                                               // 更新历史记录显示
+                                               updateHistoryList();
+                                               
+                                               // 显示保存成功消息
+                                               alert('结果已保存到历史记录！');
+                                               
+                                               // 切换到历史标签页
+                                               document.querySelector('.tab[data-tab="history"]').click();
+                                           });
         // 重新拍摄按钮
         recaptureButton.addEventListener('click', () => {
             // 切换到捕获标签页
@@ -1074,49 +1393,55 @@
         }
 
         // 更新历史记录列表
-        function updateHistoryList() {
-            historyList.innerHTML = '';
-            
-            if (history.length === 0) {
-                historyList.innerHTML = '<p>暂无历史记录</p>';
-                return;
-            }
-            
-            history.forEach((entry, index) => {
-                const item = document.createElement('div');
-                item.className = 'history-item';
-                
-                const colorSwatch = document.createElement('div');
-                colorSwatch.className = 'history-color';
-                colorSwatch.style.backgroundColor = `rgb(${entry.rgb})`;
-                
-                const info = document.createElement('div');
-                info.className = 'history-info';
-                info.innerHTML = `
-                    <div>${entry.concentration} μM</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">${entry.timestamp}</div>
-                `;
-                
-                const actions = document.createElement('div');
-                actions.className = 'history-actions';
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '删除';
-                deleteBtn.addEventListener('click', () => {
-                    history.splice(index, 1);
-                    localStorage.setItem('concentrationHistory', JSON.stringify(history));
-                    updateHistoryList();
-                });
-                
-                actions.appendChild(deleteBtn);
-                
-                item.appendChild(colorSwatch);
-                item.appendChild(info);
-                item.appendChild(actions);
-                
-                historyList.appendChild(item);
-            });
-        }
+                                           // 更新历史记录列表
+                                           function updateHistoryList() {
+                                               historyList.innerHTML = '';
+                                               
+                                               if (history.length === 0) {
+                                                   historyList.innerHTML = '<p>暂无历史记录</p>';
+                                                   return;
+                                               }
+                                               
+                                               history.forEach((entry, index) => {
+                                                   const item = document.createElement('div');
+                                                   item.className = 'history-item';
+                                                   
+                                                   const colorSwatch = document.createElement('div');
+                                                   colorSwatch.className = 'history-color';
+                                                   colorSwatch.style.backgroundColor = `rgb(${entry.rgb})`;
+                                                   
+                                                   const info = document.createElement('div');
+                                                   info.className = 'history-info';
+                                                   
+                                                   // 兼容旧版本历史记录
+                                                   const displayResult = entry.result || (entry.concentration + ' μM');
+                                                   const displayType = entry.type || '四环素';
+                                                   
+                                                   info.innerHTML = `
+                                                       <div>${displayResult} <span style="font-size: 12px; color: var(--accent);">[${displayType}]</span></div>
+                                                       <div style="font-size: 12px; color: var(--text-secondary);">${entry.timestamp}</div>
+                                                   `;
+                                                   
+                                                   const actions = document.createElement('div');
+                                                   actions.className = 'history-actions';
+                                                   
+                                                   const deleteBtn = document.createElement('button');
+                                                   deleteBtn.textContent = '删除';
+                                                   deleteBtn.addEventListener('click', () => {
+                                                       history.splice(index, 1);
+                                                       localStorage.setItem('concentrationHistory', JSON.stringify(history));
+                                                       updateHistoryList();
+                                                   });
+                                                   
+                                                   actions.appendChild(deleteBtn);
+                                                   
+                                                   item.appendChild(colorSwatch);
+                                                   item.appendChild(info);
+                                                   item.appendChild(actions);
+                                                   
+                                                   historyList.appendChild(item);
+                                               });
+                                           }
 
         // 监听设置变化
         sampleSizeSlider.addEventListener('input', () => {
@@ -1167,494 +1492,93 @@
             // 校准功能
             const calibrateButton = document.getElementById('calibrateButton');
             
-            calibrateButton.addEventListener('click', () => {
-                // 创建校准对话框
-                const calibrationDialog = document.createElement('div');
-                calibrationDialog.className = 'card';
-                calibrationDialog.style.position = 'fixed';
-                calibrationDialog.style.top = '50%';
-                calibrationDialog.style.left = '50%';
-                calibrationDialog.style.transform = 'translate(-50%, -50%)';
-                calibrationDialog.style.zIndex = '1000';
-                calibrationDialog.style.width = '90%';
-                calibrationDialog.style.maxWidth = '500px';
-                calibrationDialog.style.maxHeight = '80vh';
-                calibrationDialog.style.overflow = 'auto';
+           
                 
-                calibrationDialog.innerHTML = `
-                    <h2>校准浓度检测器</h2>
-                    <p>使用已知浓度的样本进行校准。拍摄或上传标准样本图像，然后输入其已知浓度值。</p>
-                    
-                    <div class="form-group">
-                        <label for="knownConcentration">已知浓度 (μM)</label>
-                        <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1">
-                    </div>
-                    
-                    <div class="button-group">
-                        <button id="calibrateCaptureButton" class="button">拍摄校准样本</button>
-                        <button id="calibrateUploadButton" class="button">上传校准样本</button>
-                        <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
-                    </div>
-                `;
-                
-                document.body.appendChild(calibrationDialog);
-                
-                // 获取新创建的元素
-                const knownConcentrationInput = document.getElementById('knownConcentration');
-                const calibrateCaptureButton = document.getElementById('calibrateCaptureButton');
-                const calibrateUploadButton = document.getElementById('calibrateUploadButton');
-                const calibrateCancelButton = document.getElementById('calibrateCancelButton');
-                
-                // 校准取消按钮
-                calibrateCancelButton.addEventListener('click', () => {
-                    document.body.removeChild(calibrationDialog);
-                });
-                
-                // 校准拍摄按钮
-                calibrateCaptureButton.addEventListener('click', async () => {
-                    try {
-                        // 清理已有的流
-                        if (stream) {
-                            stream.getTracks().forEach(track => track.stop());
-                        }
-                        
-                        stream = await navigator.mediaDevices.getUserMedia({
-                            video: { facingMode: 'environment' },
-                            audio: false
-                        });
-                        
-                        // 创建临时视频元素
-                        const tempVideo = document.createElement('video');
-                        tempVideo.srcObject = stream;
-                        tempVideo.autoplay = true;
-                        tempVideo.playsinline = true;
-                        tempVideo.style.width = '100%';
-                        tempVideo.style.borderRadius = '8px';
-                        tempVideo.style.marginBottom = '16px';
-                        
-                        // 创建拍照按钮
-                        const tempCaptureButton = document.createElement('button');
-                        tempCaptureButton.className = 'button';
-                        tempCaptureButton.textContent = '拍摄校准样本';
-                        tempCaptureButton.style.width = '100%';
-                        
-                        // 清空对话框内容
-                        calibrationDialog.innerHTML = '';
-                        calibrationDialog.appendChild(tempVideo);
-                        
-                        // 添加标记圆圈
-                        const tempCircle = document.createElement('div');
-                        tempCircle.style.position = 'absolute';
-                        tempCircle.style.width = '100px';
-                        tempCircle.style.height = '100px';
-                        tempCircle.style.border = '2px dashed rgba(255, 255, 255, 0.8)';
-                        tempCircle.style.borderRadius = '50%';
-                        tempCircle.style.top = '50%';
-                        tempCircle.style.left = '50%';
-                        tempCircle.style.transform = 'translate(-50%, -50%)';
-                        calibrationDialog.appendChild(tempCircle);
-                        
-                        calibrationDialog.appendChild(tempCaptureButton);
-                        
-                        // 拍照按钮点击事件
-                        tempCaptureButton.addEventListener('click', () => {
-                            // 创建临时画布
-                            const tempCanvas = document.createElement('canvas');
-                            const tempContext = tempCanvas.getContext('2d');
-                            tempCanvas.width = tempVideo.videoWidth;
-                            tempCanvas.height = tempVideo.videoHeight;
-                            tempContext.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-                            
-                            // 获取图像数据
-                            const imageData = tempCanvas.toDataURL('image/png');
-                            
-                            // 停止视频流
-                            stream.getTracks().forEach(track => track.stop());
-                            
-                            // 更新校准对话框
-                            calibrationDialog.innerHTML = `
-                                <h2>确认校准样本</h2>
-                                <div style="position: relative; margin-bottom: 16px;">
-                                    <img id="calibrationPreview" src="${imageData}" style="width: 100%; border-radius: 8px;">
-                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; border: 2px dashed var(--primary); border-radius: 50%;"></div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="knownConcentration">已知浓度 (μM)</label>
-                                    <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1" value="${knownConcentrationInput.value || ''}">
-                                </div>
-                                
-                                <div class="button-group">
-                                    <button id="confirmCalibrationButton" class="button">确认添加校准点</button>
-                                    <button id="retakeCaptureButton" class="button">重新拍摄</button>
-                                    <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
-                                </div>
-                            `;
-                            
-                            // 重新获取按钮元素
-                            const confirmCalibrationButton = document.getElementById('confirmCalibrationButton');
-                            const retakeCaptureButton = document.getElementById('retakeCaptureButton');
-                            const cancelButton = document.getElementById('calibrateCancelButton');
-                            const calibrationPreview = document.getElementById('calibrationPreview');
-                            const knownConcentrationInput = document.getElementById('knownConcentration');
-                            
-                            // 确认按钮点击事件
-                            confirmCalibrationButton.addEventListener('click', () => {
-                                const concentration = parseFloat(knownConcentrationInput.value);
-                                
-                                if (isNaN(concentration) || concentration < 0) {
-                                    alert('请输入有效的浓度值');
-                                    return;
-                                }
-                                
-                                // 分析校准样本颜色
-                                const tempCanvas = document.createElement('canvas');
-                                const tempContext = tempCanvas.getContext('2d');
-                                tempCanvas.width = calibrationPreview.naturalWidth;
-                                tempCanvas.height = calibrationPreview.naturalHeight;
-                                tempContext.drawImage(calibrationPreview, 0, 0);
-                                
-                                // 获取图像中心点
-                                const centerX = Math.floor(tempCanvas.width / 2);
-                                const centerY = Math.floor(tempCanvas.height / 2);
-                                
-                                // 从圆形区域获取像素
-                                const pixels = getCirclePixels(tempContext, centerX, centerY, sampleSize);
-                                
-                                // 过滤异常值
-                                const filteredPixels = filterOutliers(pixels, parseInt(outlierThresholdSlider.value));
-                                
-                                // 计算平均颜色
-                                const avgColor = calculateAverageColor(filteredPixels);
-                                
-                                // 添加新的校准点
-                                const newCalibrationPoint = {
-                                    concentration: concentration,
-                                    color: {
-                                        r: avgColor.r,
-                                        g: avgColor.g,
-                                        b: avgColor.b
-                                    }
-                                };
-                                
-                                // 检查是否已存在相同浓度的校准点
-                                const existingIndex = referenceColors.findIndex(ref => ref.concentration === concentration);
-                                
-                                if (existingIndex >= 0) {
-                                    // 如果已存在，询问是否替换
-                                    if (confirm(`已存在浓度为 ${concentration} μM 的校准点。是否替换？`)) {
-                                        referenceColors[existingIndex] = newCalibrationPoint;
-                                    }
-                                } else {
-                                    // 添加新校准点
-                                    referenceColors.push(newCalibrationPoint);
-                                    
-                                    // 按浓度排序
-                                    referenceColors.sort((a, b) => b.concentration - a.concentration);
-                                }
-                                
-                                // 保存校准数据到本地存储
-                                localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
-                                
-                                // 更新参考色值比例尺
-                                createReferenceScale();
-                                
-                                // 关闭对话框
-                                document.body.removeChild(calibrationDialog);
-                                
-                                // 显示成功消息
-                                alert('校准点已添加！');
-                            });
-                            
-                            // 重新拍摄按钮
-                            retakeCaptureButton.addEventListener('click', () => {
-                                // 重新点击校准拍摄按钮
-                                calibrateCaptureButton.click();
-                            });
-                            
-                            // 取消按钮
-                            cancelButton.addEventListener('click', () => {
-                                document.body.removeChild(calibrationDialog);
-                            });
-                        });
-                        
-                    } catch (err) {
-                        console.error('无法访问相机: ', err);
-                        alert('无法访问相机，请确保已授予权限或尝试上传图片。');
-                    }
-                });
-                
-                // 上传校准样本按钮
-                calibrateUploadButton.addEventListener('click', () => {
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = 'image/*';
-                    
-                    fileInput.onchange = (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                                const imageUrl = event.target.result;
-                                
-                                // 更新校准对话框
-                                calibrationDialog.innerHTML = `
-                                    <h2>确认校准样本</h2>
-                                    <div style="position: relative; margin-bottom: 16px;">
-                                        <img id="calibrationPreview" src="${imageUrl}" style="width: 100%; border-radius: 8px;">
-                                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; border: 2px dashed var(--primary); border-radius: 50%;"></div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="knownConcentration">已知浓度 (μM)</label>
-                                        <input type="number" id="knownConcentration" class="form-control" min="0" max="1000" step="0.1" value="${knownConcentrationInput.value || ''}">
-                                    </div>
-                                    
-                                    <div class="button-group">
-                                        <button id="confirmCalibrationButton" class="button">确认添加校准点</button>
-                                        <button id="uploadAnotherButton" class="button">上传另一张</button>
-                                        <button id="calibrateCancelButton" class="button" style="background-color: #9e9e9e;">取消</button>
-                                    </div>
-                                `;
-                                
-                                // 重新获取按钮元素
-                                const confirmCalibrationButton = document.getElementById('confirmCalibrationButton');
-                                const uploadAnotherButton = document.getElementById('uploadAnotherButton');
-                                const cancelButton = document.getElementById('calibrateCancelButton');
-                                const calibrationPreview = document.getElementById('calibrationPreview');
-                                const knownConcentrationInput = document.getElementById('knownConcentration');
-                                
-                                // 确认按钮点击事件
-                                confirmCalibrationButton.addEventListener('click', () => {
-                                    const concentration = parseFloat(knownConcentrationInput.value);
-                                    
-                                    if (isNaN(concentration) || concentration < 0) {
-                                        alert('请输入有效的浓度值');
-                                        return;
-                                    }
-                                    
-                                    // 等待图像加载完成
-                                    calibrationPreview.onload = () => {
-                                        // 分析校准样本颜色
-                                        const tempCanvas = document.createElement('canvas');
-                                        const tempContext = tempCanvas.getContext('2d');
-                                        tempCanvas.width = calibrationPreview.naturalWidth;
-                                        tempCanvas.height = calibrationPreview.naturalHeight;
-                                        tempContext.drawImage(calibrationPreview, 0, 0);
-                                        
-                                        // 获取图像中心点
-                                        const centerX = Math.floor(tempCanvas.width / 2);
-                                        const centerY = Math.floor(tempCanvas.height / 2);
-                                        
-                                        // 从圆形区域获取像素
-                                        const pixels = getCirclePixels(tempContext, centerX, centerY, sampleSize);
-                                        
-                                        // 过滤异常值
-                                        const filteredPixels = filterOutliers(pixels, parseInt(outlierThresholdSlider.value));
-                                        
-                                        // 计算平均颜色
-                                        const avgColor = calculateAverageColor(filteredPixels);
-                                        
-                                        // 添加新的校准点
-                                        const newCalibrationPoint = {
-                                            concentration: concentration,
-                                            color: {
-                                                r: avgColor.r,
-                                                g: avgColor.g,
-                                                b: avgColor.b
-                                            }
-                                        };
-                                        
-                                        // 检查是否已存在相同浓度的校准点
-                                        const existingIndex = referenceColors.findIndex(ref => ref.concentration === concentration);
-                                        
-                                        if (existingIndex >= 0) {
-                                            // 如果已存在，询问是否替换
-                                            if (confirm(`已存在浓度为 ${concentration} μM 的校准点。是否替换？`)) {
-                                                referenceColors[existingIndex] = newCalibrationPoint;
-                                            }
-                                        } else {
-                                            // 添加新校准点
-                                            referenceColors.push(newCalibrationPoint);
-                                            
-                                            // 按浓度排序
-                                            referenceColors.sort((a, b) => b.concentration - a.concentration);
-                                        }
-                                        
-                                        // 保存校准数据到本地存储
-                                        localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
-                                        
-                                        // 更新参考色值比例尺
-                                        createReferenceScale();
-                                        
-                                        // 关闭对话框
-                                        document.body.removeChild(calibrationDialog);
-                                        
-                                        // 显示成功消息
-                                        alert('校准点已添加！');
-                                    };
-                                    
-                                    // 确保图像已加载
-                                    if (calibrationPreview.complete) {
-                                        calibrationPreview.onload();
-                                    }
-                                });
-                                
-                                // 上传另一张按钮
-                                uploadAnotherButton.addEventListener('click', () => {
-                                    fileInput.click();
-                                });
-                                
-                                // 取消按钮
-                                cancelButton.addEventListener('click', () => {
-                                    document.body.removeChild(calibrationDialog);
-                                });
-                            };
-                            reader.readAsDataURL(file);
-                        }
-                    };
-                    
-                    fileInput.click();
-                });
-            });
+             
+                                           // RGB转XYZ函数
+                                           function rgbToXyz(r, g, b) {
+                                               // 归一化RGB值到0-1
+                                               r = r / 255;
+                                               g = g / 255;
+                                               b = b / 255;
+                                               
+                                               // 应用gamma校正
+                                               r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+                                               g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+                                               b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+                                               
+                                               // 转换到XYZ
+                                               const x = r * 0.4124 + g * 0.3576 + b * 0.1805;
+                                               const y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+                                               const z = r * 0.0193 + g * 0.1192 + b * 0.9505;
+                                               
+                                               return { x: x * 100, y: y * 100, z: z * 100 };
+                                           }
 
-            // 添加导出校准数据功能
-            function exportCalibrationData() {
-                const dataStr = JSON.stringify(referenceColors, null, 2);
-                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                
-                const exportFileName = 'calibration_data_' + new Date().toISOString().slice(0, 10) + '.json';
-                
-                const linkElement = document.createElement('a');
-                linkElement.setAttribute('href', dataUri);
-                linkElement.setAttribute('download', exportFileName);
-                linkElement.click();
-            }
+                                           // XYZ转Lab函数
+                                           function xyzToLab(x, y, z) {
+                                               // D65参考白点
+                                               const refX = 95.047;
+                                               const refY = 100.0;
+                                               const refZ = 108.883;
+                                               
+                                               x = x / refX;
+                                               y = y / refY;
+                                               z = z / refZ;
+                                               
+                                               x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
+                                               y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
+                                               z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
+                                               
+                                               const l = (116 * y) - 16;
+                                               const a = 500 * (x - y);
+                                               const b = 200 * (y - z);
+                                               
+                                               return { l, a, b };
+                                           }
 
-            // 添加导入校准数据功能
-            function importCalibrationData(file) {
-                const reader = new FileReader();
-                
-                reader.onload = (event) => {
-                    try {
-                        const importedData = JSON.parse(event.target.result);
-                        
-                        // 验证数据结构
-                        if (Array.isArray(importedData) && importedData.length > 0 &&
-                            importedData[0].hasOwnProperty('concentration') &&
-                            importedData[0].hasOwnProperty('color')) {
-                            
-                            // 更新参考色值
-                            referenceColors = importedData;
-                            
-                            // 保存到本地存储
-                            localStorage.setItem('calibrationData', JSON.stringify(referenceColors));
-                            
-                            // 更新参考色值比例尺
-                            createReferenceScale();
-                            
-                            alert('校准数据导入成功！');
-                        } else {
-                            alert('导入失败：无效的校准数据格式');
-                        }
-                    } catch (error) {
-                        console.error('导入校准数据时出错:', error);
-                        alert('导入失败：' + error.message);
-                    }
-                };
-                
-                reader.readAsText(file);
-            }
+                                           // RGB直接转Lab函数
+                                           function rgbToLab(r, g, b) {
+                                               const xyz = rgbToXyz(r, g, b);
+                                               return xyzToLab(xyz.x, xyz.y, xyz.z);
+                                           }
 
-            // 添加导出/导入按钮到设置标签页
-            const settingsTab = document.getElementById('settings-tab');
-            const exportImportSection = document.createElement('div');
-            exportImportSection.style.marginTop = '24px';
-            exportImportSection.innerHTML = `
-                <h3>导出/导入校准数据</h3>
-                <p>您可以导出当前校准数据以备份，或导入之前保存的校准数据。</p>
-                <div class="button-group">
-                    <button id="exportDataButton" class="button">导出校准数据</button>
-                    <input type="file" id="importDataInput" accept=".json" style="display: none;">
-                    <button id="importDataButton" class="button">导入校准数据</button>
-                    <button id="resetDataButton" class="button" style="background-color: #f44336;">重置为默认值</button>
-                </div>
-            `;
-
-            settingsTab.appendChild(exportImportSection);
-
-            // 绑定导出/导入按钮事件
-            document.getElementById('exportDataButton').addEventListener('click', exportCalibrationData);
-
-            document.getElementById('importDataButton').addEventListener('click', () => {
-                document.getElementById('importDataInput').click();
-            });
-
-            document.getElementById('importDataInput').addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    importCalibrationData(e.target.files[0]);
-                }
-            });
-
-            // 重置校准数据
-            document.getElementById('resetDataButton').addEventListener('click', () => {
-                if (confirm('确定要重置所有校准数据吗？此操作将恢复默认参考色值，且无法撤销。')) {
-                    // 从本地存储中移除校准数据
-                    localStorage.removeItem('calibrationData');
-                    
-                    // 恢复默认参考色值
-                    referenceColors = [
-                        { concentration: 1000, color: { r: 225, g: 179, b: 131 } }, // 橙褐色
-                        { concentration: 700, color: { r: 231, g: 157, b: 121 } },  // 浅橙色
-                        { concentration: 400, color: { r: 236, g: 152, b: 161 } },  // 粉红色
-                        { concentration: 200, color: { r: 234, g: 140, b: 175 } },  // 深粉色
-                        { concentration: 100, color: { r: 229, g: 136, b: 187 } },  // 玫红色
-                        { concentration: 90, color: { r: 224, g: 134, b: 197 } },   // 浅紫色
-                        { concentration: 80, color: { r: 217, g: 132, b: 203 } },   // 浅紫色
-                        { concentration: 70, color: { r: 210, g: 131, b: 209 } },   // 中紫色
-                        { concentration: 60, color: { r: 201, g: 132, b: 213 } },   // 紫色
-                        { concentration: 50, color: { r: 193, g: 133, b: 217 } },   // 深紫色
-                        { concentration: 40, color: { r: 183, g: 136, b: 220 } },   // 深紫色
-                        { concentration: 30, color: { r: 171, g: 139, b: 222 } },   // 紫蓝色
-                        { concentration: 20, color: { r: 159, g: 144, b: 224 } },   // 紫蓝色
-                        { concentration: 10, color: { r: 145, g: 150, b: 225 } },   // 淡蓝色
-                        { concentration: 7, color: { r: 132, g: 155, b: 226 } },    // 淡蓝色
-                        { concentration: 5, color: { r: 117, g: 162, b: 227 } },    // 蓝色
-                        { concentration: 3, color: { r: 101, g: 168, b: 228 } },    // 蓝色
-                        { concentration: 1, color: { r: 83, g: 176, b: 228 } },     // 亮蓝色
-                        { concentration: 0, color: { r: 68, g: 182, b: 229 } }      // 亮蓝色
-                    ];
-                    
-                    // 更新参考色值比例尺
-                    createReferenceScale();
-                    
-                    alert('校准数据已重置为默认值！');
-                }
-            });
-
-            // 加载保存的校准数据
-            function loadCalibrationData() {
-                const savedCalibration = localStorage.getItem('calibrationData');
-                if (savedCalibration) {
-                    try {
-                        const parsedData = JSON.parse(savedCalibration);
-                        
-                        // 验证数据结构
-                        if (Array.isArray(parsedData) && parsedData.length > 0 &&
-                            parsedData[0].hasOwnProperty('concentration') &&
-                            parsedData[0].hasOwnProperty('color')) {
-                            
-                            referenceColors = parsedData;
-                            createReferenceScale();
-                        }
-                    } catch (error) {
-                        console.error('加载校准数据时出错:', error);
-                    }
-                }
-            }
-
-            // 页面加载时加载校准数据
-            window.addEventListener('load', loadCalibrationData);
+                                           // RGB到HSV的转换函数
+                                           function rgbToHsv(r, g, b) {
+                                               // 归一化RGB值到0-1范围
+                                               r = r / 255;
+                                               g = g / 255;
+                                               b = b / 255;
+                                               
+                                               const max = Math.max(r, g, b);
+                                               const min = Math.min(r, g, b);
+                                               const delta = max - min;
+                                               
+                                               // 计算HSV值
+                                               let h, s, v;
+                                               
+                                               // 计算色相H
+                                               if (delta === 0) {
+                                                   h = 0; // 无色相（灰色）
+                                               } else if (max === r) {
+                                                   h = ((g - b) / delta) % 6;
+                                               } else if (max === g) {
+                                                   h = (b - r) / delta + 2;
+                                               } else { // max === b
+                                                   h = (r - g) / delta + 4;
+                                               }
+                                               
+                                               h = Math.round(h * 60); // 转换到度数
+                                               if (h < 0) h += 360;
+                                               
+                                               // 计算饱和度S
+                                               s = max === 0 ? 0 : delta / max;
+                                               
+                                               // 计算明度V
+                                               v = max;
+                                               
+                                               return { h, s, v };
+                                           }
     </script>
 </body>
 </html>
